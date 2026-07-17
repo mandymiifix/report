@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miifix Digital - Trade-In Dashboard</title>
+    
+    <!-- 加载 React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 加载 Babel (用于在浏览器中运行 React 语法) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 加载 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 加载 Recharts (用于图表) -->
+    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+
+    <!-- 配置 Miifix 品牌颜色 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: '#0a192f',
+                        accent: '#f59e0b',
+                        background: '#f3f4f6'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-navy font-sans antialiased">
+    <!-- React 应用挂载点 -->
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = window.Recharts;
+
+        // 1. 嵌入的数据 (你可以在这里直接修改或添加更多数据)
+        const mockData = [
+            { TradeInID: "TRD-001", DealerCompany: "Alpha Mobile", Brand: "Apple", Model: "iPhone 13 Pro", FinalTradeInCost: 1450.00, Date: "2026-07-12" },
+            { TradeInID: "TRD-002", DealerCompany: "Beta Gadgets", Brand: "Samsung", Model: "Galaxy S22 Ultra", FinalTradeInCost: 1200.00, Date: "2026-07-15" },
+            { TradeInID: "TRD-003", DealerCompany: "Alpha Mobile", Brand: "Apple", Model: "iPhone 14", FinalTradeInCost: 2100.00, Date: "2026-07-16" },
+            { TradeInID: "TRD-004", DealerCompany: "Gamma Tech", Brand: "Xiaomi", Model: "12 Pro", FinalTradeInCost: 900.00, Date: "2026-07-16" },
+            { TradeInID: "TRD-005", DealerCompany: "Beta Gadgets", Brand: "Oppo", Model: "Find X5", FinalTradeInCost: 1100.00, Date: "2026-07-17" }
+        ];
+
+        function Dashboard() {
+            const [data] = useState(mockData);
+
+            // 2. 动态计算 KPI 数据
+            const kpis = useMemo(() => {
+                const totalQuantity = data.length;
+                const totalCost = data.reduce((sum, item) => sum + item.FinalTradeInCost, 0);
+                const avgCost = totalQuantity > 0 ? (totalCost / totalQuantity) : 0;
+                
+                const dealers = {};
+                data.forEach(item => {
+                    if (!dealers[item.DealerCompany]) {
+                        dealers[item.DealerCompany] = { company: item.DealerCompany, quantity: 0 };
+                    }
+                    dealers[item.DealerCompany].quantity += 1;
+                });
+
+                const activeDealersCount = Object.keys(dealers).length;
+                const topDealers = Object.values(dealers).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+
+                return { totalQuantity, totalCost, avgCost, activeDealersCount, topDealers };
+            }, [data]);
+
+            // 格式化货币 RM
+            const formatCurrency = (amount) => `RM ${amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    {/* 左侧导航栏 */}
+                    <nav className="w-64 bg-navy text-white flex-shrink-0 flex flex-col">
+                        <div className="p-6">
+                            <h1 className="text-2xl font-bold text-accent mb-8">Miifix Digital</h1>
+                            <ul className="space-y-2">
+                                <li className="px-4 py-3 bg-white/10 rounded-lg font-medium cursor-pointer">Management Overview</li>
+                                <li className="px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg cursor-pointer transition">Dealer Performance</li>
+                                <li className="px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg cursor-pointer transition">Phone Analysis</li>
+                                <li className="px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg cursor-pointer transition">Transaction Details</li>
+                            </ul>
+                        </div>
+                    </nav>
+
+                    {/* 右侧主内容区 */}
+                    <main className="flex-1 overflow-y-auto bg-background">
+                        {/* 顶部过滤器占位 */}
+                        <div className="bg-white border-b shadow-sm px-8 py-4 flex gap-4 items-center">
+                            <h2 className="text-xl font-bold mr-auto">Overview</h2>
+                            <select className="border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:border-accent">
+                                <option>All Dealers</option>
+                            </select>
+                            <button className="bg-accent hover:bg-yellow-600 text-white px-6 py-2 rounded-md text-sm font-medium transition">
+                                Apply Filters
+                            </button>
+                        </div>
+
+                        <div className="p-8 max-w-7xl mx-auto">
+                            {/* KPI 卡片 */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-accent">
+                                    <p className="text-sm text-gray-500 font-medium mb-2">Total Quantity</p>
+                                    <p className="text-3xl font-bold text-navy">{kpis.totalQuantity}</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-accent">
+                                    <p className="text-sm text-gray-500 font-medium mb-2">Total Cost</p>
+                                    <p className="text-3xl font-bold text-navy">{formatCurrency(kpis.totalCost)}</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-accent">
+                                    <p className="text-sm text-gray-500 font-medium mb-2">Avg Cost/Device</p>
+                                    <p className="text-3xl font-bold text-navy">{formatCurrency(kpis.avgCost)}</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-accent">
+                                    <p className="text-sm text-gray-500 font-medium mb-2">Active Dealers</p>
+                                    <p className="text-3xl font-bold text-navy">{kpis.activeDealersCount}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* 图表：Top Dealers */}
+                                <div className="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 className="text-lg font-bold mb-6 text-navy">Top Dealers by Quantity</h3>
+                                    <div className="h-72">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={kpis.topDealers} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                <XAxis type="number" />
+                                                <YAxis dataKey="company" type="category" width={100} tick={{fontSize: 12, fill: '#4b5563'}} />
+                                                <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                                <Bar dataKey="quantity" fill="#0a192f" radius={[0, 4, 4, 0]} barSize={30} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                                
+                                {/* 表格：近期交易 */}
+                                <div className="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 className="text-lg font-bold mb-6 text-navy">Recent Transactions</h3>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="border-b-2 border-gray-100">
+                                                <tr>
+                                                    <th className="pb-3 font-semibold text-gray-500">ID</th>
+                                                    <th className="pb-3 font-semibold text-gray-500">Dealer</th>
+                                                    <th className="pb-3 font-semibold text-gray-500">Model</th>
+                                                    <th className="pb-3 font-semibold text-gray-500 text-right">Cost</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {data.map((txn, idx) => (
+                                                    <tr key={idx} className="hover:bg-gray-50 transition">
+                                                        <td className="py-4 text-gray-600">{txn.TradeInID}</td>
+                                                        <td className="py-4 font-medium text-navy">{txn.DealerCompany}</td>
+                                                        <td className="py-4 text-gray-600">{txn.Brand} {txn.Model}</td>
+                                                        <td className="py-4 font-medium text-navy text-right">{formatCurrency(txn.FinalTradeInCost)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
+</body>
+</html>
