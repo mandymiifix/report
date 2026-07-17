@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Miifix Trade-In Management Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --navy:#0f172a; --navy2:#1e293b; --muted:#64748b; --line:#e2e8f0;
+      --bg:#f4f6f8; --card:#ffffff; --accent:#f59e0b; --accent2:#fbbf24;
+      --green:#16a34a; --red:#dc2626; --amber:#d97706; --blue:#2563eb;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--navy)}
+    button,input,select{font:inherit}
+    .sidebar{position:fixed;inset:0 auto 0 0;width:248px;background:linear-gradient(180deg,#0f172a,#111827);color:white;padding:24px 18px;z-index:20;overflow:auto}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+    .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:grid;place-items:center;color:#111827;font-weight:900}
+    .brand h1{font-size:18px;margin:0}.brand small{color:#cbd5e1}
+    .nav-btn{width:100%;border:0;background:transparent;color:#cbd5e1;text-align:left;padding:12px 14px;border-radius:10px;margin:4px 0;cursor:pointer}
+    .nav-btn:hover,.nav-btn.active{background:#263449;color:#fff}
+    .main{margin-left:248px;min-height:100vh}
+    .topbar{position:sticky;top:0;z-index:10;background:rgba(244,246,248,.95);backdrop-filter:blur(10px);padding:18px 24px 10px;border-bottom:1px solid var(--line)}
+    .title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+    .title-row h2{margin:0 0 5px;font-size:26px}.sub{color:var(--muted);font-size:13px}
+    .refresh-pill{background:#ecfdf5;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:8px 12px;font-size:12px;white-space:nowrap}
+    .content{padding:22px 24px 40px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 16px rgba(15,23,42,.05)}
+    .upload{padding:18px;margin-bottom:18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+    .upload-info{flex:1;min-width:260px}.upload-info h3{margin:0 0 7px}.upload-info p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+    .upload-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{border:1px solid var(--line);background:white;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600}
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{background:var(--accent);color:#111827;border-color:var(--accent)}
+    .btn-dark{background:var(--navy);color:white;border-color:var(--navy)}
+    .file-label{position:relative;overflow:hidden}.file-label input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .filters{padding:16px;margin-bottom:18px}
+    .filter-grid{display:grid;grid-template-columns:repeat(6,minmax(135px,1fr));gap:10px}
+    .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .field input,.field select{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:white;color:var(--navy)}
+    .filter-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap}
+    .active-filters{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}.chip{font-size:12px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;padding:5px 8px;border-radius:999px}
+    .page{display:none}.page.active{display:block}
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+    .kpi{padding:17px}.kpi .label{font-size:12px;color:var(--muted);font-weight:700}.kpi .value{font-size:27px;font-weight:800;margin:8px 0}.kpi .trend{font-size:12px}.up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--muted)}
+    .grid-2{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:18px}.grid-equal{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+    .chart-card{padding:16px;min-height:340px}.chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}.chart-head h3{margin:0;font-size:16px}.chart-wrap{height:280px}
+    .section-card{padding:16px;margin-bottom:18px}.section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.section-title h3{margin:0}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}
+    table{width:100%;border-collapse:collapse;min-width:950px;background:white}th,td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;text-align:left;white-space:nowrap}th{background:#f8fafc;position:sticky;top:0;z-index:1;color:#334155;font-size:11px;text-transform:uppercase;letter-spacing:.04em}tbody tr:hover{background:#fffaf0}
+    .status{padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700}.active-status{background:#dcfce7;color:#166534}.inactive-status{background:#fef3c7;color:#92400e}.critical{background:#fee2e2;color:#991b1b}.positive{background:#dcfce7;color:#166534}.info{background:#dbeafe;color:#1e40af}
+    .empty{padding:42px;text-align:center;color:var(--muted)}
+    .searchbar{display:flex;gap:8px}.searchbar input{min-width:240px;padding:9px 11px;border:1px solid var(--line);border-radius:9px}
+    .pagination{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}.pagination .pager{display:flex;gap:7px}
+    .notice{padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:13px}.notice.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}.notice.good{background:#ecfdf5;border:1px solid #bbf7d0;color:#166534}
+    @media(max-width:1200px){.filter-grid{grid-template-columns:repeat(3,1fr)}.kpi-grid{grid-template-columns:repeat(2,1fr)}.grid-2,.grid-equal{grid-template-columns:1fr}}
+    @media(max-width:760px){.sidebar{position:static;width:100%;height:auto}.main{margin-left:0}.nav-btn{display:inline-block;width:auto}.filter-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:1fr}.content,.topbar{padding-left:14px;padding-right:14px}.title-row{flex-direction:column}.searchbar{flex-direction:column}.searchbar input{min-width:0;width:100%}}
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">M</div><div><h1>Miifix BI</h1><small>Trade-In Management</small></div></div>
+    <button class="nav-btn active" data-page="overview">Management Overview</button>
+    <button class="nav-btn" data-page="dealers">Dealer Performance</button>
+    <button class="nav-btn" data-page="phones">Phone Analysis</button>
+    <button class="nav-btn" data-page="transactions">Transaction Details</button>
+    <button class="nav-btn" data-page="custom">Custom Analysis</button>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="title-row">
+        <div><h2 id="pageTitle">Management Overview</h2><div class="sub">Dealer-level trade-in performance without outlet analysis</div></div>
+        <div class="refresh-pill" id="refreshStatus">No data loaded</div>
+      </div>
+    </header>
+
+    <div class="content">
+      <section class="card upload">
+        <div class="upload-info"><h3>Upload Trade-In Data</h3><p>Upload CSV or Excel. Expected fields include TradeInID, SubmissionDate, DealerCode, DealerCompany, Brand, Model, Capacity, FinalTradeInCost and related status fields.</p></div>
+        <div class="upload-actions">
+          <label class="btn file-label">Choose File<input id="fileInput" type="file" accept=".csv,.xlsx,.xls" /></label>
+          <button class="btn btn-primary" id="loadBtn">Load Data</button>
+          <button class="btn" id="sampleBtn">Use Sample Data</button>
+          <button class="btn" id="templateBtn">Download CSV Template</button>
+        </div>
+      </section>
+
+      <section class="card filters">
+        <div class="filter-grid">
+          <div class="field"><label>Start Date</label><input id="startDate" type="date"></div>
+          <div class="field"><label>End Date</label><input id="endDate" type="date"></div>
+          <div class="field"><label>Dealer</label><select id="dealerFilter"><option value="">All Dealers</option></select></div>
+          <div class="field"><label>Brand</label><select id="brandFilter"><option value="">All Brands</option></select></div>
+          <div class="field"><label>Model</label><select id="modelFilter"><option value="">All Models</option></select></div>
+          <div class="field"><label>Capacity</label><select id="capacityFilter"><option value="">All Capacities</option></select></div>
+          <div class="field"><label>Trade-In Status</label><select id="tradeStatusFilter"><option value="">All Statuses</option></select></div>
+          <div class="field"><label>Payment Status</label><select id="paymentStatusFilter"><option value="">All Payments</option></select></div>
+          <div class="field"><label>Program</label><select id="programFilter"><option value="">All Programs</option></select></div>
+          <div class="field"><label>Channel</label><select id="channelFilter"><option value="">All Channels</option></select></div>
+        </div>
+        <div class="filter-actions"><button class="btn" id="resetBtn">Reset</button><button class="btn btn-dark" id="applyBtn">Apply Filters</button></div>
+        <div class="active-filters" id="activeFilters"></div>
+      </section>
+
+      <section class="page active" id="overview">
+        <div class="kpi-grid">
+          <div class="card kpi"><div class="label">Total Trade-In Quantity</div><div class="value" id="kpiQty">0</div><div class="trend neutral" id="kpiQtyTrend">No previous month data</div></div>
+          <div class="card kpi"><div class="label">Total Trade-In Cost</div><div class="value" id="kpiCost">RM 0.00</div><div class="trend neutral" id="kpiCostTrend">No previous month data</div></div>
+          <div class="card kpi"><div class="label">Average Cost per Device</div><div class="value" id="kpiAvg">RM 0.00</div><div class="trend neutral">Based on filtered records</div></div>
+          <div class="card kpi"><div class="label">Active Dealers</div><div class="value" id="kpiDealers">0</div><div class="trend neutral" id="kpiDealerAvg">0 devices per active dealer</div></div>
+          <div class="card kpi"><div class="label">Current Month Quantity</div><div class="value" id="currentQty">0</div><div class="trend neutral" id="previousQty">Previous: 0</div></div>
+          <div class="card kpi"><div class="label">Current Month Cost</div><div class="value" id="currentCost">RM 0.00</div><div class="trend neutral" id="previousCost">Previous: RM 0.00</div></div>
+          <div class="card kpi"><div class="label">Duplicate Trade-In IDs</div><div class="value" id="duplicateIds">0</div><div class="trend neutral">Data quality check</div></div>
+          <div class="card kpi"><div class="label">Duplicate IMEIs</div><div class="value" id="duplicateImeis">0</div><div class="trend neutral">Data quality warning</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card chart-card"><div class="chart-head"><h3>Monthly Trade-In Trend</h3></div><div class="chart-wrap"><canvas id="monthlyChart"></canvas></div></div>
+          <div class="card chart-card"><div class="chart-head"><h3>Dealer Contribution</h3></div><div class="chart-wrap"><canvas id="dealerContributionChart"></canvas></div></div>
+        </div>
+        <div class="grid-equal">
+          <div class="card chart-card"><div class="chart-head"><h3>Top Dealers by Quantity</h3></div><div class="chart-wrap"><canvas id="dealerChart"></canvas></div></div>
+          <div class="card chart-card"><div class="chart-head"><h3>Phone Brand Breakdown</h3></div><div class="chart-wrap"><canvas id="brandChart"></canvas></div></div>
+        </div>
+        <div class="card section-card"><div class="section-title"><h3>Management Alerts</h3></div><div class="table-wrap"><table><thead><tr><th>Dealer</th><th>Previous Qty</th><th>Current Qty</th><th>Change</th><th>Last Trade-In</th><th>Alert</th><th>Severity</th><th>Recommended Action</th></tr></thead><tbody id="alertsBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="dealers">
+        <div class="card section-card"><div class="section-title"><h3>Dealer Performance</h3><div class="searchbar"><input id="dealerSearch" placeholder="Search dealer name or code"><button class="btn" id="exportDealerBtn">Export CSV</button></div></div><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Dealer Code</th><th>Dealer Company</th><th>Total Qty</th><th>Total Cost</th><th>Avg Cost</th><th>Current Qty</th><th>Previous Qty</th><th>MoM %</th><th>Contribution</th><th>Last Trade-In</th><th>Status</th></tr></thead><tbody id="dealerBody"></tbody></table></div></div>
+        <div class="card chart-card"><div class="chart-head"><h3>Dealer-by-Month Matrix</h3></div><div class="table-wrap"><table id="dealerMatrix"></table></div></div>
+      </section>
+
+      <section class="page" id="phones">
+        <div class="grid-equal"><div class="card chart-card"><div class="chart-head"><h3>Top Models by Quantity</h3></div><div class="chart-wrap"><canvas id="modelQtyChart"></canvas></div></div><div class="card chart-card"><div class="chart-head"><h3>Top Models by Cost</h3></div><div class="chart-wrap"><canvas id="modelCostChart"></canvas></div></div></div>
+        <div class="card section-card"><div class="section-title"><h3>Phone Model Analysis</h3><div class="searchbar"><input id="phoneSearch" placeholder="Search brand, model or capacity"></div></div><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Brand</th><th>Model</th><th>Capacity</th><th>Quantity</th><th>Total Cost</th><th>Average Cost</th><th>Dealer Count</th><th>Previous Qty</th><th>MoM Change</th><th>Contribution</th></tr></thead><tbody id="phoneBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="transactions">
+        <div class="card section-card"><div class="section-title"><h3>Transaction Details</h3><div class="searchbar"><input id="transactionSearch" placeholder="Search ID, IMEI, dealer, model"><button class="btn" id="exportTransactionsBtn">Export CSV</button></div></div><div id="qualityNotice"></div><div class="table-wrap"><table><thead><tr><th>Trade-In ID</th><th>Submission Date</th><th>Dealer Code</th><th>Dealer Company</th><th>Brand</th><th>Model</th><th>Capacity</th><th>IMEI</th><th>Declared Price</th><th>Final Cost</th><th>Mismatch</th><th>Trade-In Status</th><th>Payment Status</th><th>Program</th><th>Channel</th></tr></thead><tbody id="transactionBody"></tbody></table></div><div class="pagination"><span id="pageInfo">0 records</span><div class="pager"><button class="btn" id="prevPage">Previous</button><button class="btn" id="nextPage">Next</button></div></div></div>
+      </section>
+
+      <section class="page" id="custom">
+        <div class="card section-card"><div class="section-title"><h3>Build Your View</h3></div><div class="filter-grid"><div class="field"><label>Metric</label><select id="customMetric"><option value="quantity">Trade-In Quantity</option><option value="cost">Total Trade-In Cost</option><option value="average">Average Trade-In Cost</option></select></div><div class="field"><label>Group By</label><select id="customGroup"><option value="DealerCompany">Dealer</option><option value="Brand">Brand</option><option value="Model">Model</option><option value="Capacity">Capacity</option><option value="TradeInStatus">Trade-In Status</option><option value="PaymentStatus">Payment Status</option><option value="Program">Program</option><option value="Channel">Channel</option><option value="Month">Month</option></select></div><div class="field"><label>Chart Type</label><select id="customChartType"><option value="bar">Bar Chart</option><option value="line">Line Chart</option><option value="doughnut">Donut Chart</option></select></div></div><div class="filter-actions"><button class="btn btn-primary" id="runCustomBtn">Apply Analysis</button></div></div>
+        <div class="card chart-card"><div class="chart-head"><h3 id="customTitle">Custom Analysis</h3></div><div class="chart-wrap"><canvas id="customChart"></canvas></div></div>
+      </section>
+    </div>
+  </main>
+
+<script>
+const state={raw:[],filtered:[],page:1,pageSize:50,charts:{}};
+const requiredFields=['TradeInID','SubmissionDate','DealerCode','DealerCompany','Brand','Model','Capacity','FinalTradeInCost'];
+const $=id=>document.getElementById(id);
+const money=v=>'RM '+Number(v||0).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+const num=v=>Number(String(v??0).replace(/[^0-9.-]/g,''))||0;
+function parseDate(v){if(!v)return null;if(v instanceof Date&&!isNaN(v))return v; if(typeof v==='number'&&window.XLSX){const d=XLSX.SSF.parse_date_code(v);return d?new Date(d.y,d.m-1,d.d):null} const s=String(v).trim();let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);let d=new Date(s);return isNaN(d)?null:d}
+function fmtDate(v){const d=parseDate(v);return d?d.toLocaleDateString('en-GB'):'-'}
+function monthKey(d){return d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`:'Unknown'}
+function monthLabel(k){if(k==='Unknown')return k;const [y,m]=k.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en-MY',{month:'short',year:'numeric'})}
+function unique(arr){return [...new Set(arr.filter(v=>v!==undefined&&v!==null&&String(v).trim()!==''))].sort((a,b)=>String(a).localeCompare(String(b)))}
+function group(rows,key){const out={};rows.forEach(r=>{const k=typeof key==='function'?key(r):(r[key]||'Unknown');(out[k]??=[]).push(r)});return out}
+function sum(rows,key='FinalTradeInCost'){return rows.reduce((a,r)=>a+num(r[key]),0)}
+function qty(rows){return rows.reduce((a,r)=>a+num(r._qty||1),0)}
+function destroyChart(name){if(state.charts[name]){state.charts[name].destroy();delete state.charts[name]}}
+function chart(name,ctx,config){destroyChart(name);state.charts[name]=new Chart(ctx,config)}
+
+function normalize(rows){return rows.map(r=>{const n={};Object.keys(r).forEach(k=>n[String(k).trim()]=r[k]);const aliases={TradeInID:['TradeInID','Trade In ID','Trade-In ID','ID'],SubmissionDate:['SubmissionDate','Submission Date','Date'],DealerCode:['DealerCode','Dealer Code'],DealerCompany:['DealerCompany','Dealer Company','Dealer'],Brand:['Brand','Phone Brand'],Model:['Model','Phone Model'],Capacity:['Capacity','Storage'],FinalTradeInCost:['FinalTradeInCost','Final Trade-In Cost','Final Trade In Cost','Trade-In Cost','Trade In Cost','Total Cost'],Quantity:['Quantity','Qty','TradeInQuantity','Trade-In Quantity','Total Quantity']};Object.entries(aliases).forEach(([target,list])=>{if(n[target]===undefined){const hit=list.find(x=>n[x]!==undefined);if(hit)n[target]=n[hit]}});n.FinalTradeInCost=num(n.FinalTradeInCost);n.DeclaredPrice=num(n.DeclaredPrice);n.MismatchAmount=num(n.MismatchAmount);n._qty=Math.max(0,num(n.Quantity||n.Qty||n.TradeInQuantity||1))||1;n._date=parseDate(n.SubmissionDate);n._month=monthKey(n._date);return n}).filter(r=>Object.values(r).some(v=>v!==''&&v!==null&&v!==undefined))}
+function loadFile(){const file=$('fileInput').files[0];if(!file)return alert('Please choose a CSV or Excel file.');const reader=new FileReader();reader.onload=e=>{try{let rows;if(file.name.toLowerCase().endsWith('.csv')){const wb=XLSX.read(e.target.result,{type:'string'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''})}else{const wb=XLSX.read(e.target.result,{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''})}setData(rows,file.name)}catch(err){alert('Unable to read this file: '+err.message)}};file.name.toLowerCase().endsWith('.csv')?reader.readAsText(file):reader.readAsArrayBuffer(file)}
+function setData(rows,name='Data'){state.raw=normalize(rows);state.page=1;populateFilters();applyFilters();$('refreshStatus').textContent=`Loaded ${state.raw.length.toLocaleString()} rows / ${qty(state.raw).toLocaleString()} devices from ${name}`}
+
+function populateSelect(id,values,label){const el=$(id),current=el.value;el.innerHTML=`<option value="">All ${label}</option>`+values.map(v=>`<option value="${String(v).replace(/"/g,'&quot;')}">${v}</option>`).join('');if(values.map(String).includes(current))el.value=current}
+function populateFilters(){populateSelect('dealerFilter',unique(state.raw.map(r=>r.DealerCompany)),'Dealers');populateSelect('brandFilter',unique(state.raw.map(r=>r.Brand)),'Brands');populateDependentFilters()}
+function populateDependentFilters(){const dealer=$('dealerFilter').value,brand=$('brandFilter').value;const base=state.raw.filter(r=>(!dealer||r.DealerCompany===dealer)&&(!brand||r.Brand===brand));populateSelect('modelFilter',unique(base.map(r=>r.Model)),'Models');populateSelect('capacityFilter',unique(base.map(r=>r.Capacity)),'Capacities');populateSelect('tradeStatusFilter',unique(base.map(r=>r.TradeInStatus)),'Statuses');populateSelect('paymentStatusFilter',unique(base.map(r=>r.PaymentStatus)),'Payments');populateSelect('programFilter',unique(base.map(r=>r.Program)),'Programs');populateSelect('channelFilter',unique(base.map(r=>r.Channel)),'Channels')}
+function applyFilters(){const f={start:$('startDate').value?new Date($('startDate').value):null,end:$('endDate').value?new Date($('endDate').value+'T23:59:59'):null,dealer:$('dealerFilter').value,brand:$('brandFilter').value,model:$('modelFilter').value,capacity:$('capacityFilter').value,trade:$('tradeStatusFilter').value,payment:$('paymentStatusFilter').value,program:$('programFilter').value,channel:$('channelFilter').value};state.filtered=state.raw.filter(r=>(!f.start||r._date>=f.start)&&(!f.end||r._date<=f.end)&&(!f.dealer||r.DealerCompany===f.dealer)&&(!f.brand||r.Brand===f.brand)&&(!f.model||r.Model===f.model)&&(!f.capacity||r.Capacity===f.capacity)&&(!f.trade||r.TradeInStatus===f.trade)&&(!f.payment||r.PaymentStatus===f.payment)&&(!f.program||r.Program===f.program)&&(!f.channel||r.Channel===f.channel));state.page=1;renderActiveFilters(f);renderAll()}
+function resetFilters(){['startDate','endDate','dealerFilter','brandFilter','modelFilter','capacityFilter','tradeStatusFilter','paymentStatusFilter','programFilter','channelFilter'].forEach(id=>$(id).value='');populateFilters();applyFilters()}
+function renderActiveFilters(f){const names={start:'From',end:'To',dealer:'Dealer',brand:'Brand',model:'Model',capacity:'Capacity',trade:'Trade Status',payment:'Payment',program:'Program',channel:'Channel'};const chips=[];Object.entries(f).forEach(([k,v])=>{if(v)chips.push(`<span class="chip">${names[k]}: ${v instanceof Date?v.toLocaleDateString('en-GB'):v}</span>`)});$('activeFilters').innerHTML=chips.join('')}
+function currentPrevious(rows){const dates=rows.map(r=>r._date).filter(Boolean).sort((a,b)=>b-a);const ref=dates[0]||new Date();const currentKey=monthKey(ref);const prevDate=new Date(ref.getFullYear(),ref.getMonth()-1,1),prevKey=monthKey(prevDate);const cur=rows.filter(r=>r._month===currentKey),prev=rows.filter(r=>r._month===prevKey);return{cur,prev,currentKey,prevKey}}
+function mom(cur,prev){if(prev===0&&cur>0)return{text:'New Activity',cls:'up'};if(prev===0&&cur===0)return{text:'0.0%',cls:'neutral'};const pct=(cur-prev)/prev*100;return{text:`${pct>=0?'↑':'↓'} ${Math.abs(pct).toFixed(1)}%`,cls:pct>0?'up':pct<0?'down':'neutral',value:pct}}
+function renderKPIs(){const r=state.filtered,total=sum(r),totalQty=qty(r),active=new Set(r.map(x=>x.DealerCode).filter(Boolean)).size,cp=currentPrevious(r),curQty=qty(cp.cur),prevQty=qty(cp.prev),qm=mom(curQty,prevQty),cm=mom(sum(cp.cur),sum(cp.prev));$('kpiQty').textContent=totalQty.toLocaleString();$('kpiCost').textContent=money(total);$('kpiAvg').textContent=money(totalQty?total/totalQty:0);$('kpiDealers').textContent=active;$('kpiDealerAvg').textContent=`${active?(totalQty/active).toFixed(1):0} devices per active dealer`;$('currentQty').textContent=curQty.toLocaleString();$('previousQty').textContent=`Previous: ${prevQty.toLocaleString()}`;$('currentCost').textContent=money(sum(cp.cur));$('previousCost').textContent=`Previous: ${money(sum(cp.prev))}`;$('kpiQtyTrend').className='trend '+qm.cls;$('kpiQtyTrend').textContent=qm.text+' compared with previous month';$('kpiCostTrend').className='trend '+cm.cls;$('kpiCostTrend').textContent=cm.text+' compared with previous month';$('duplicateIds').textContent=countDuplicates(r,'TradeInID');$('duplicateImeis').textContent=countDuplicates(r,'IMEI')}
+function countDuplicates(rows,key){const c={};rows.forEach(r=>{const v=String(r[key]||'').trim();if(v)c[v]=(c[v]||0)+1});return Object.values(c).filter(n=>n>1).length}
+function renderOverviewCharts(){const r=state.filtered,months=group(r,'_month'),labels=Object.keys(months).filter(k=>k!=='Unknown').sort();chart('monthlyChart',$('monthlyChart'),{data:{labels:labels.map(monthLabel),datasets:[{type:'bar',label:'Quantity',data:labels.map(k=>qty(months[k])),yAxisID:'y'},{type:'line',label:'Total Cost',data:labels.map(k=>sum(months[k])),yAxisID:'y1',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}});const dealers=Object.entries(group(r,'DealerCompany')).map(([k,v])=>({k,qty:qty(v),cost:sum(v)})).sort((a,b)=>b.qty-a.qty);const top=dealers.slice(0,10);chart('dealerChart',$('dealerChart'),{type:'bar',data:{labels:top.map(x=>x.k),datasets:[{label:'Quantity',data:top.map(x=>x.qty)}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});const contribution=dealers.slice(0,10);const other=dealers.slice(10).reduce((a,x)=>a+x.qty,0);if(other)contribution.push({k:'Other Dealers',qty:other});chart('dealerContributionChart',$('dealerContributionChart'),{type:'doughnut',data:{labels:contribution.map(x=>x.k),datasets:[{data:contribution.map(x=>x.qty)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});const brands=Object.entries(group(r,'Brand')).map(([k,v])=>({k,qty:qty(v)})).sort((a,b)=>b.qty-a.qty);chart('brandChart',$('brandChart'),{type:'bar',data:{labels:brands.map(x=>x.k),datasets:[{label:'Quantity',data:brands.map(x=>x.qty)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
+function dealerStats(rows){const cp=currentPrevious(rows),allQty=qty(rows);return Object.entries(group(rows,'DealerCode')).map(([code,items])=>{const name=items[0].DealerCompany||code,cur=items.filter(r=>r._month===cp.currentKey),prev=items.filter(r=>r._month===cp.prevKey),last=items.map(r=>r._date).filter(Boolean).sort((a,b)=>b-a)[0],itemQty=qty(items),curQty=qty(cur),prevQty=qty(prev),m=mom(curQty,prevQty);return{code,name,qty:itemQty,cost:sum(items),avg:itemQty?sum(items)/itemQty:0,cur:curQty,prev:prevQty,mom:m,last,contribution:allQty?itemQty/allQty*100:0,status:last&&((new Date()-last)/(864e5)<=30)?'Active':'Inactive'}}).sort((a,b)=>b.qty-a.qty)}
+function renderDealerTable(){let stats=dealerStats(state.filtered);const q=$('dealerSearch').value.toLowerCase();if(q)stats=stats.filter(x=>(x.code+' '+x.name).toLowerCase().includes(q));$('dealerBody').innerHTML=stats.length?stats.map((x,i)=>`<tr><td>${i+1}</td><td>${x.code}</td><td>${x.name}</td><td>${x.qty}</td><td>${money(x.cost)}</td><td>${money(x.avg)}</td><td>${x.cur}</td><td>${x.prev}</td><td class="${x.mom.cls}">${x.mom.text}</td><td>${x.contribution.toFixed(1)}%</td><td>${x.last?x.last.toLocaleDateString('en-GB'):'-'}</td><td><span class="status ${x.status==='Active'?'active-status':'inactive-status'}">${x.status}</span></td></tr>`).join(''):`<tr><td colspan="12" class="empty">No dealer records found</td></tr>`;renderDealerMatrix(stats)}
+function renderDealerMatrix(stats){const months=unique(state.filtered.map(r=>r._month).filter(k=>k!=='Unknown')).sort();const byDealer=group(state.filtered,'DealerCode');let html='<thead><tr><th>Dealer</th>'+months.map(monthLabel).map(m=>`<th>${m}</th>`).join('')+'<th>Total</th></tr></thead><tbody>';stats.slice(0,30).forEach(s=>{html+=`<tr><td>${s.name}</td>`+months.map(m=>`<td>${qty((byDealer[s.code]||[]).filter(r=>r._month===m))}</td>`).join('')+`<td><b>${s.qty}</b></td></tr>`});html+='</tbody>';$('dealerMatrix').innerHTML=html}
+function renderAlerts(){const stats=dealerStats(state.filtered);const rows=[];stats.forEach(s=>{if(s.status==='Inactive')rows.push({...s,alert:'Inactive for more than 30 days',severity:'Warning',action:'Contact dealer and review inactivity'});if(s.mom.value<-30)rows.push({...s,alert:'Quantity decreased by more than 30%',severity:'Critical',action:'Investigate decline and dealer pipeline'});if(s.mom.value>50)rows.push({...s,alert:'Quantity increased by more than 50%',severity:'Positive',action:'Recognise growth and confirm capacity'})});$('alertsBody').innerHTML=rows.length?rows.slice(0,50).map(x=>`<tr><td>${x.name}</td><td>${x.prev}</td><td>${x.cur}</td><td class="${x.mom.cls}">${x.mom.text}</td><td>${x.last?x.last.toLocaleDateString('en-GB'):'-'}</td><td>${x.alert}</td><td><span class="status ${x.severity==='Critical'?'critical':x.severity==='Positive'?'positive':'inactive-status'}">${x.severity}</span></td><td>${x.action}</td></tr>`).join(''):`<tr><td colspan="8" class="empty">No management alerts for the selected data</td></tr>`}
+function phoneStats(rows){const cp=currentPrevious(rows),allQty=qty(rows);return Object.entries(group(rows,r=>[r.Brand,r.Model,r.Capacity].join('|'))).map(([k,items])=>{const [brand,model,capacity]=k.split('|'),prev=qty(items.filter(r=>r._month===cp.prevKey)),cur=qty(items.filter(r=>r._month===cp.currentKey)),itemQty=qty(items);return{brand,model,capacity,qty:itemQty,cost:sum(items),avg:itemQty?sum(items)/itemQty:0,dealers:new Set(items.map(r=>r.DealerCode)).size,prev,m:mom(cur,prev),contribution:allQty?itemQty/allQty*100:0}}).sort((a,b)=>b.qty-a.qty)}
+function renderPhones(){let stats=phoneStats(state.filtered);const q=$('phoneSearch').value.toLowerCase();if(q)stats=stats.filter(x=>(x.brand+' '+x.model+' '+x.capacity).toLowerCase().includes(q));$('phoneBody').innerHTML=stats.length?stats.map((x,i)=>`<tr><td>${i+1}</td><td>${x.brand}</td><td>${x.model}</td><td>${x.capacity}</td><td>${x.qty}</td><td>${money(x.cost)}</td><td>${money(x.avg)}</td><td>${x.dealers}</td><td>${x.prev}</td><td class="${x.m.cls}">${x.m.text}</td><td>${x.contribution.toFixed(1)}%</td></tr>`).join(''):`<tr><td colspan="11" class="empty">No phone records found</td></tr>`;const topQty=stats.slice(0,10),topCost=[...stats].sort((a,b)=>b.cost-a.cost).slice(0,10);chart('modelQtyChart',$('modelQtyChart'),{type:'bar',data:{labels:topQty.map(x=>x.brand+' '+x.model),datasets:[{label:'Quantity',data:topQty.map(x=>x.qty)}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});chart('modelCostChart',$('modelCostChart'),{type:'bar',data:{labels:topCost.map(x=>x.brand+' '+x.model),datasets:[{label:'Total Cost',data:topCost.map(x=>x.cost)}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
+function renderTransactions(){let rows=state.filtered;const q=$('transactionSearch').value.toLowerCase();if(q)rows=rows.filter(r=>[r.TradeInID,r.IMEI,r.DealerCode,r.DealerCompany,r.Brand,r.Model].join(' ').toLowerCase().includes(q));const pages=Math.max(1,Math.ceil(rows.length/state.pageSize));state.page=Math.min(state.page,pages);const start=(state.page-1)*state.pageSize,end=start+state.pageSize,slice=rows.slice(start,end);$('transactionBody').innerHTML=slice.length?slice.map(r=>`<tr><td>${r.TradeInID||'-'}</td><td>${fmtDate(r.SubmissionDate)}</td><td>${r.DealerCode||'-'}</td><td>${r.DealerCompany||'-'}</td><td>${r.Brand||'-'}</td><td>${r.Model||'-'}</td><td>${r.Capacity||'-'}</td><td>${r.IMEI||'-'}</td><td>${money(r.DeclaredPrice)}</td><td>${money(r.FinalTradeInCost)}</td><td>${money(r.MismatchAmount)}</td><td>${r.TradeInStatus||'-'}</td><td>${r.PaymentStatus||'-'}</td><td>${r.Program||'-'}</td><td>${r.Channel||'-'}</td></tr>`).join(''):`<tr><td colspan="15" class="empty">No transaction records found</td></tr>`;$('pageInfo').textContent=`${rows.length.toLocaleString()} records • Page ${state.page} of ${pages}`;const missing=requiredFields.filter(f=>state.raw.some(r=>r[f]===undefined));$('qualityNotice').innerHTML=missing.length?`<div class="notice warn">Missing expected columns: ${missing.join(', ')}</div>`:`<div class="notice good">All minimum required columns were detected.</div>`}
+function renderCustom(){const metric=$('customMetric').value,groupBy=$('customGroup').value,type=$('customChartType').value;const groups=group(state.filtered,r=>groupBy==='Month'?r._month:r[groupBy]);let arr=Object.entries(groups).map(([k,v])=>({k:groupBy==='Month'?monthLabel(k):k,value:metric==='quantity'?qty(v):metric==='cost'?sum(v):(qty(v)?sum(v)/qty(v):0)})).sort((a,b)=>b.value-a.value).slice(0,20);$('customTitle').textContent=`${$('customMetric').selectedOptions[0].text} by ${$('customGroup').selectedOptions[0].text}`;chart('customChart',$('customChart'),{type,data:{labels:arr.map(x=>x.k),datasets:[{label:$('customMetric').selectedOptions[0].text,data:arr.map(x=>x.value)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type==='doughnut'}}}})}
+function renderAll(){renderKPIs();renderOverviewCharts();renderAlerts();renderDealerTable();renderPhones();renderTransactions();renderCustom()}
+function exportCSV(rows,filename){if(!rows.length)return alert('No data to export.');const ws=XLSX.utils.json_to_sheet(rows.map(({_date,_month,...r})=>r));const csv=XLSX.utils.sheet_to_csv(ws);const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href)}
+function downloadTemplate(){const headers=['TradeInID','SubmissionDate','ReceivedDate','DealerCode','DealerCompany','Brand','Model','Capacity','Colour','IMEI','DeclaredPrice','FinalTradeInCost','MismatchAmount','TradeInStatus','PaymentStatus','Program','Channel','LastUpdatedDate','Quantity'];const csv=headers.join(',')+'\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='trade_in_upload_template.csv';a.click()}
+function sampleData(){const brands={Apple:['iPhone 11','iPhone 12','iPhone 13','iPhone 14'],Samsung:['Galaxy S21','Galaxy S22','Galaxy A54'],Xiaomi:['Xiaomi 13','Xiaomi 14T'],Honor:['Honor 90','Magic 5 Pro'],Oppo:['Reno 11','Reno 12'],Vivo:['V29','V30'],Realme:['Realme 11 Pro'],Huawei:['P50 Pro'],Google:['Pixel 7'],Redmi:['Note 13 Pro']};const rows=[];for(let i=1;i<=1200;i++){const brand=Object.keys(brands)[Math.floor(Math.random()*Object.keys(brands).length)],model=brands[brand][Math.floor(Math.random()*brands[brand].length)],d=new Date();d.setMonth(d.getMonth()-Math.floor(Math.random()*24));d.setDate(1+Math.floor(Math.random()*28));const cost=200+Math.floor(Math.random()*2200),dealer=1+Math.floor(Math.random()*30);rows.push({TradeInID:'TI'+String(i).padStart(6,'0'),SubmissionDate:d.toLocaleDateString('en-GB'),ReceivedDate:d.toLocaleDateString('en-GB'),DealerCode:'D'+String(dealer).padStart(3,'0'),DealerCompany:'Dealer Company '+dealer,Brand:brand,Model:model,Capacity:['64GB','128GB','256GB','512GB'][Math.floor(Math.random()*4)],Colour:['Black','White','Blue','Gold'][Math.floor(Math.random()*4)],IMEI:'35'+String(1000000000000+i),DeclaredPrice:cost+Math.floor(Math.random()*150),FinalTradeInCost:cost,MismatchAmount:Math.random()<.18?Math.floor(Math.random()*120):0,TradeInStatus:['Completed','Pending','Rejected'][Math.floor(Math.random()*3)],PaymentStatus:['Paid','Unpaid','Processing'][Math.floor(Math.random()*3)],Program:['Standard','Campaign','Corporate'][Math.floor(Math.random()*3)],Channel:['Dealer','Online','Event'][Math.floor(Math.random()*3)],LastUpdatedDate:d.toLocaleDateString('en-GB')})}setData(rows,'sample data')}
+
+$('loadBtn').onclick=loadFile;$('sampleBtn').onclick=sampleData;$('templateBtn').onclick=downloadTemplate;$('applyBtn').onclick=applyFilters;$('resetBtn').onclick=resetFilters;$('dealerFilter').onchange=populateDependentFilters;$('brandFilter').onchange=populateDependentFilters;$('dealerSearch').oninput=renderDealerTable;$('phoneSearch').oninput=renderPhones;$('transactionSearch').oninput=()=>{state.page=1;renderTransactions()};$('prevPage').onclick=()=>{if(state.page>1){state.page--;renderTransactions()}};$('nextPage').onclick=()=>{state.page++;renderTransactions()};$('exportDealerBtn').onclick=()=>exportCSV(dealerStats(state.filtered),'dealer_performance.csv');$('exportTransactionsBtn').onclick=()=>exportCSV(state.filtered,'trade_in_transactions.csv');$('runCustomBtn').onclick=renderCustom;
+document.querySelectorAll('.nav-btn').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));btn.classList.add('active');$(btn.dataset.page).classList.add('active');$('pageTitle').textContent=btn.textContent});
+sampleData();
+</script>
+</body>
+</html>
